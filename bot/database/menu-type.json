@@ -1,0 +1,71 @@
+{
+  "downloader": [
+    "play",
+    "ig",
+    "tiktok",
+    "tt",
+    "spotify",
+    "pin",
+    "fb",
+    "instagram",
+    "igdl",
+    "ytmp3",
+    "pinterest"
+  ],
+  "random": [],
+  "tools": [
+    "txt2img",
+    "hd",
+    "nobg",
+    "get",
+    "toimg",
+    "rvo",
+    "q",
+    "remini",
+    "upload",
+    "removebg",
+    "up",
+    "tourl",
+    "reduce",
+    "quoted"
+  ],
+  "ai": [
+    "autoai",
+    "ai",
+    "chatgpt",
+    "jenita",
+    "jenitaa",
+    "copilot"
+  ],
+  "group": [
+    "linkgc",
+    "kick",
+    "add",
+    "promote",
+    "tagall",
+    "hidetag",
+    "link",
+    "del",
+    "demote"
+  ],
+  "owner": [
+    "delcase",
+    "addcase",
+    "gantifile",
+    "backup"
+  ],
+  "sticker": [
+    "sticker",
+    "smeme",
+    "swm",
+    "wm",
+    "s",
+    "stiker"
+  ],
+  "main": [
+    "menu",
+    "listcase",
+    "totalfitur",
+    "ping"
+  ]
+}

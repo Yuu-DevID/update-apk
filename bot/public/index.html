@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Session Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/ansi_up@5.0.0/ansi_up.min.js"></script>
+    <style>
+        body {
+            background-color: #212529;
+            color: #f8f9fa;
+        }
+
+        .modal-content {
+            background-color: #343a40;
+        }
+
+        .modal-header,
+        .modal-footer {
+            border-color: #495057;
+        }
+
+        .list-group-item {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border-color: #495057;
+        }
+
+        .btn-dark {
+            background-color: #495057;
+            color: #f8f9fa;
+        }
+
+        .log-container {
+            display: block;
+            /* Agar mirip pre */
+            white-space: pre-wrap;
+            /* Wrap teks agar tidak overflow */
+            font-family: monospace;
+            /* Gunakan font monospace */
+            background-color: #1e1e1e;
+            /* Warna latar mirip terminal */
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            /* Tambahkan scroll horizontal jika diperlukan */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container mt-5">
+        <div class="row mb-3">
+            <div class="col">
+                <div class="input-group">
+                    <input type="number" id="sessionInput" class="form-control bg-dark text-light"
+                        placeholder="Enter Session ID">
+                    <button id="addSessionBtn" class="btn btn-primary">Add Session</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <h3>Sessions</h3>
+                <ul id="sessionList" class="list-group">
+                    <!-- Sessions will be dynamically added here -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Logs Modal -->
+        <div class="modal fade" id="logsModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Logs for Session <span id="logSessionId"></span></h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <code id="logsContent" class="log-container text-light"></code>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const socket = new WebSocket('wss://pm2-bot.yuudev.my.id');
+        const sessionInput = document.getElementById('sessionInput');
+        const addSessionBtn = document.getElementById('addSessionBtn');
+        const sessionList = document.getElementById('sessionList');
+        const logsModal = new bootstrap.Modal(document.getElementById('logsModal'));
+        const logsContent = document.getElementById('logsContent');
+        const logSessionId = document.getElementById('logSessionId');
+        const ansiUp = new AnsiUp();
+
+        async function fetchSessions() {
+            const response = await fetch('/sessions');
+            const sessions = await response.json();
+            renderSessions(sessions);
+        }
+
+        function renderSessions(sessions) {
+            sessionList.innerHTML = '';
+            sessions.forEach(sessionId => {
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.innerHTML = `
+                    Session ${sessionId}
+                    <div>
+                        <button class="btn btn-sm btn-success me-1 start-btn" data-session="${sessionId}">Start</button>
+                        <button class="btn btn-sm btn-danger me-1 stop-btn" data-session="${sessionId}">Stop</button>
+                        <button class="btn btn-sm btn-warning me-1 restart-btn" data-session="${sessionId}">Restart</button>
+                        <button class="btn btn-sm btn-info logs-btn" data-session="${sessionId}">Show Logs</button>
+                         <button class="btn btn-sm btn-danger me-1 delete-btn" data-session="${sessionId}">Delete Session</button>
+                    </div>
+                `;
+                sessionList.appendChild(listItem);
+            });
+
+            document.querySelectorAll('.start-btn').forEach(btn => {
+                btn.addEventListener('click', () => startSession(btn.dataset.session));
+            });
+            document.querySelectorAll('.stop-btn').forEach(btn => {
+                btn.addEventListener('click', () => stopSession(btn.dataset.session));
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteSession(btn.dataset.session));
+            });
+            document.querySelectorAll('.restart-btn').forEach(btn => {
+                btn.addEventListener('click', () => restartSession(btn.dataset.session));
+            });
+            document.querySelectorAll('.logs-btn').forEach(btn => {
+                btn.addEventListener('click', () => showLogs(btn.dataset.session));
+            });
+        }
+
+        let lastLog = ''; // Variabel untuk menyimpan log terakhir
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            switch (data.type) {
+                case 'session_added':
+                    fetchSessions();
+                    break;
+                case 'log_output':
+                    if (data.data !== lastLog) { // Periksa apakah log sama dengan yang terakhir
+                        logsContent.innerHTML += ansiUp.ansi_to_html(data.data) + "\n";
+                        lastLog = data.data; // Perbarui log terakhir
+                    }
+                    break;
+                case 'log_error':
+                    if (data.data !== lastLog) { // Periksa log error yang sama
+                        logsContent.innerHTML += ansiUp.ansi_to_html(`<span style="color:red;">ERROR: ${data.data}</span>`) + "\n";
+                        lastLog = data.data; // Perbarui log terakhir
+                    }
+                    break;
+            }
+        };
+
+        addSessionBtn.addEventListener('click', () => {
+            const sessionId = sessionInput.value.trim();
+            if (sessionId) {
+                socket.send(JSON.stringify({ type: 'add_session', sessionId }));
+                sessionInput.value = '';
+            }
+        });
+
+        function startSession(sessionId) {
+            socket.send(JSON.stringify({ type: 'start_session', sessionId }));
+        }
+
+        function stopSession(sessionId) {
+            socket.send(JSON.stringify({ type: 'stop_session', sessionId }));
+        }
+
+        function deleteSession(sessionId) {
+            socket.send(JSON.stringify({ type: 'delete_session', sessionId }));
+        }
+
+        function restartSession(sessionId) {
+            socket.send(JSON.stringify({ type: 'restart_session', sessionId }));
+        }
+
+        function showLogs(sessionId) {
+            logsContent.innerHTML = '';
+            logSessionId.textContent = sessionId;
+            socket.send(JSON.stringify({ type: 'get_logs', sessionId }));
+            logsModal.show();
+        }
+
+        fetchSessions();
+    </script>
+</body>
+
+</html>
